@@ -1,13 +1,28 @@
 package com.bcp.wallet.identity;
 
 import io.quarkus.test.junit.QuarkusTest;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.nio.file.Path;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 
 @QuarkusTest
 class OnboardingResourceTest {
+    @BeforeEach
+    void clearsLocalAccountsBetweenTests() throws SQLException {
+        try (var connection = DriverManager.getConnection(
+                "jdbc:sqlite:" + Path.of("target/test-identity.sqlite").toAbsolutePath());
+             Statement statement = connection.createStatement()) {
+            statement.executeUpdate("DELETE FROM accounts");
+        }
+    }
+
     @Test
     void reportsLocalHealthWithoutCallingUpstream() {
         given()
@@ -85,4 +100,76 @@ class OnboardingResourceTest {
                 .statusCode(400)
                 .body("error", equalTo("INVALID_DECISION"));
     }
+
+            @Test
+            void registersPersonWithDniAndReturnsMaskedDocument() {
+            given()
+                .contentType("application/json")
+                .body("""
+                    {"accountType":"PERSON","documentNumber":"12345678",
+                     "firstNames":"Ana Maria","paternalSurname":"Perez",
+                     "maternalSurname":"Rojas","email":"ana@example.test"}
+                    """)
+                .when().post("/api/v1/accounts/register")
+                .then()
+                .statusCode(201)
+                .body("accountType", equalTo("PERSON"))
+                .body("documentType", equalTo("DNI"))
+                .body("maskedDocument", equalTo("****5678"));
+            }
+
+            @Test
+            void registersBusinessWithRuc() {
+            given()
+                .contentType("application/json")
+                .body("""
+                    {"accountType":"BUSINESS","documentNumber":"20123456789",
+                     "legalName":"Empresa de Prueba SAC","email":"contacto@example.test"}
+                    """)
+                .when().post("/api/v1/accounts/register")
+                .then()
+                .statusCode(201)
+                .body("accountType", equalTo("BUSINESS"))
+                .body("documentType", equalTo("RUC"))
+                .body("maskedDocument", equalTo("*******6789"));
+            }
+
+            @Test
+            void rejectsInvalidDniWithoutSavingAccount() {
+            given()
+                .contentType("application/json")
+                .body("""
+                    {"accountType":"PERSON","documentNumber":"1234",
+                     "firstNames":"Ana","paternalSurname":"Perez",
+                     "maternalSurname":"Rojas","email":"ana@example.test"}
+                    """)
+                .when().post("/api/v1/accounts/register")
+                .then()
+                .statusCode(400)
+                .body("error", equalTo("DNI debe tener 8 dígitos"));
+            }
+
+            @Test
+            void rejectsDuplicateDocument() {
+            String body = """
+                {"accountType":"PERSON","documentNumber":"87654321",
+                 "firstNames":"Rosa","paternalSurname":"Diaz",
+                 "maternalSurname":"Leon","email":"rosa@example.test"}
+                """;
+            given().contentType("application/json").body(body)
+                .when().post("/api/v1/accounts/register").then().statusCode(201);
+            given().contentType("application/json").body(body)
+                .when().post("/api/v1/accounts/register")
+                .then().statusCode(409).body("error", equalTo("ACCOUNT_ALREADY_REGISTERED"));
+            }
+
+            @Test
+            void exposesGoogleAvailabilityAndRejectsGoogleSignupWhenUnconfigured() {
+            given().when().get("/api/v1/accounts/config")
+                .then().statusCode(200).body("googleEnabled", equalTo(false));
+            given().contentType("application/json")
+                .body("{\"documentNumber\":\"12345678\",\"credential\":\"token\"}")
+                .when().post("/api/v1/accounts/register/google")
+                .then().statusCode(503).body("error", equalTo("GOOGLE_SIGN_IN_NOT_CONFIGURED"));
+            }
 }

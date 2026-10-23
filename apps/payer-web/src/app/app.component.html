@@ -1,0 +1,178 @@
+<div class="page-shell">
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Billetera, inicio">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span>billetera</span>
+    </a>
+    <div class="topbar-right">
+      <span class="connection-state" [class.is-offline]="serviceStatus() === 'offline'">
+        <span class="connection-dot"></span>
+        {{ serviceStatus() === 'online' ? 'Servicio disponible' : serviceStatus() === 'checking' ? 'Conectando' : 'Servicio sin conexión' }}
+      </span>
+      <span class="topbar-divider"></span>
+      <span class="local-label"><i class="pi pi-lock" aria-hidden="true"></i> Registro local</span>
+    </div>
+  </header>
+
+  <main class="onboarding-layout">
+    <section class="intro-panel">
+      <div class="intro-kicker"><span>01</span> CUENTA DIGITAL</div>
+      <div class="intro-copy">
+        <h1>Tu billetera virtual,<br><em>sin complicarte.</em></h1>
+        <p class="intro-description">Paga, cobra con QR y guarda tu dinero desde el celular. Regístrate en minutos.</p>
+      </div>
+      <div class="wallet-visual" aria-hidden="true">
+        <div class="phone">
+          <div class="phone-top"><span>Hola 👋</span><i class="avatar"></i></div>
+          <div class="virtual-card">
+            <div class="card-row"><span>BILLETERA</span><i class="card-chip"></i></div>
+            <div><small>Saldo disponible</small><strong class="card-balance">S/ 0.00</strong></div>
+            <span class="card-number">•••• 2048</span>
+          </div>
+          <div class="quick-actions">
+            <span><i class="pi pi-qrcode"></i>Pagar</span>
+            <span><i class="pi pi-arrow-right-arrow-left"></i>Enviar</span>
+            <span><i class="pi pi-plus"></i>Recargar</span>
+            <span><i class="pi pi-history"></i>Historial</span>
+          </div>
+        </div>
+        <span class="float-chip chip-mint"><i class="pi pi-check-circle"></i> Pago recibido</span>
+        <span class="float-chip chip-pink"><i class="pi pi-qrcode"></i> Cobra con QR</span>
+      </div>
+      <div class="intro-bottom">
+        <div class="trust-icon"><i class="pi pi-shield" aria-hidden="true"></i></div>
+        <div><strong>Tus datos, protegidos</strong><span>La información personal se cifra en este entorno.</span></div>
+        <span class="intro-stamp" aria-hidden="true">B</span>
+      </div>
+      <div class="intro-decoration" aria-hidden="true"><span></span><span></span><span></span></div>
+    </section>
+
+    <section class="form-panel" aria-labelledby="form-title">
+      @if (registeredAccount(); as account) {
+        <div class="success-view" role="status">
+          <div class="success-icon"><i class="pi pi-check" aria-hidden="true"></i></div>
+          <p class="form-eyebrow">REGISTRO COMPLETADO</p>
+          <h2 id="form-title">Ya estás dentro.</h2>
+          <p class="success-copy">Tu solicitud quedó guardada y está lista para continuar con la validación de identidad.</p>
+          <div class="account-summary">
+            <div><span>Tipo de cuenta</span><strong>{{ account.accountType === 'PERSON' ? 'Persona' : 'Negocio' }}</strong></div>
+            <div><span>{{ account.documentType }}</span><strong>{{ account.maskedDocument }}</strong></div>
+            <div><span>Estado</span><strong class="pending-state"><i class="pi pi-clock" aria-hidden="true"></i> En revisión</strong></div>
+            <div><span>Código de registro</span><strong class="account-id">{{ account.id }}</strong></div>
+          </div>
+          <p-message severity="success" text="Registro guardado correctamente en el servicio local." />
+          <p-button label="Registrar otra cuenta" icon="pi pi-arrow-right" iconPos="right" (onClick)="startOver()" />
+        </div>
+      } @else {
+        <div class="form-heading">
+          <div>
+            <p class="form-eyebrow">EMPIEZA AQUÍ</p>
+            <h2 id="form-title">Crea tu cuenta</h2>
+            <p>Cuéntanos un poco de ti para dejar todo listo.</p>
+          </div>
+          <div class="step-badge"><span>1</span><span>de 2</span></div>
+        </div>
+
+        <div class="account-type-block">
+          <span class="field-label">¿Qué tipo de cuenta necesitas?</span>
+          <p-selectbutton
+            class="account-type-control"
+            [options]="accountTypes"
+            optionLabel="label"
+            optionValue="value"
+            [allowEmpty]="false"
+            [ngModel]="accountType()"
+            (ngModelChange)="changeAccountType($event)"
+            name="accountType"
+            aria-label="Tipo de cuenta"
+          />
+        </div>
+
+        @if (accountType() === 'PERSON' && googleEnabled()) {
+          <div class="google-block">
+            <div class="google-copy">
+              <span class="google-symbol" aria-hidden="true">G</span>
+              <div><strong>Regístrate más rápido</strong><small>Usa Google y completa solo tu DNI.</small></div>
+            </div>
+            @if (!googleCredential()) {
+              <div #googleButton class="google-button-host" aria-label="Continuar con Google"></div>
+              @if (googleLoading()) { <span class="google-loading">Cargando Google...</span> }
+            } @else {
+              <p-button label="Completar registro con Google" icon="pi pi-check" [loading]="busy()" (onClick)="submitGoogleRegistration()" />
+            }
+          </div>
+        }
+
+        <div class="form-divider"><span>{{ googleCredential() ? 'Un paso más' : accountType() === 'PERSON' && googleEnabled() ? 'O ingresa tus datos' : 'Tus datos' }}</span></div>
+
+        <form class="registration-form" (ngSubmit)="submitRegistration()">
+          @if (accountType() === 'PERSON') {
+            <div class="field-group">
+              <label for="document-number">DNI <span class="required-mark">*</span></label>
+              <input pInputText id="document-number" name="documentNumber" inputmode="numeric" autocomplete="off" maxlength="8" pattern="[0-9]{8}" placeholder="00000000" required [ngModel]="documentNumber()" (ngModelChange)="documentNumber.set($event)">
+              <small class="field-hint">8 dígitos, sin espacios.</small>
+            </div>
+            @if (!googleCredential()) {
+              <div class="field-grid">
+                <div class="field-group">
+                  <label for="first-names">Nombres <span class="required-mark">*</span></label>
+                  <input pInputText id="first-names" name="firstNames" autocomplete="given-name" placeholder="Como aparece en tu DNI" required [ngModel]="firstNames()" (ngModelChange)="firstNames.set($event)">
+                </div>
+                <div class="field-group">
+                  <label for="paternal-surname">Apellido paterno <span class="required-mark">*</span></label>
+                  <input pInputText id="paternal-surname" name="paternalSurname" autocomplete="family-name" placeholder="Tu apellido" required [ngModel]="paternalSurname()" (ngModelChange)="paternalSurname.set($event)">
+                </div>
+                <div class="field-group">
+                  <label for="maternal-surname">Apellido materno <span class="required-mark">*</span></label>
+                  <input pInputText id="maternal-surname" name="maternalSurname" placeholder="Tu apellido" required [ngModel]="maternalSurname()" (ngModelChange)="maternalSurname.set($event)">
+                </div>
+                <div class="field-group">
+                  <label for="email">Correo electrónico <span class="required-mark">*</span></label>
+                  <input pInputText id="email" name="email" type="email" autocomplete="email" placeholder="tu@correo.com" required [ngModel]="email()" (ngModelChange)="email.set($event)">
+                </div>
+              </div>
+            }
+          } @else {
+            <div class="field-group">
+              <label for="document-number">RUC <span class="required-mark">*</span></label>
+              <input pInputText id="document-number" name="documentNumber" inputmode="numeric" autocomplete="off" maxlength="11" pattern="[0-9]{11}" placeholder="20123456789" required [ngModel]="documentNumber()" (ngModelChange)="documentNumber.set($event)">
+              <small class="field-hint">11 dígitos de la empresa o negocio.</small>
+            </div>
+            <div class="field-grid">
+              <div class="field-group field-wide">
+                <label for="legal-name">Razón social <span class="required-mark">*</span></label>
+                <input pInputText id="legal-name" name="legalName" autocomplete="organization" placeholder="Nombre legal de la empresa" required [ngModel]="legalName()" (ngModelChange)="legalName.set($event)">
+              </div>
+              <div class="field-group">
+                <label for="trade-name">Nombre comercial</label>
+                <input pInputText id="trade-name" name="tradeName" placeholder="Cómo te conocen tus clientes" [ngModel]="tradeName()" (ngModelChange)="tradeName.set($event)">
+              </div>
+              <div class="field-group">
+                <label for="email">Correo de contacto <span class="required-mark">*</span></label>
+                <input pInputText id="email" name="email" type="email" autocomplete="email" placeholder="contacto@empresa.com" required [ngModel]="email()" (ngModelChange)="email.set($event)">
+              </div>
+            </div>
+          }
+
+          <div class="field-group phone-field">
+            <label for="phone">Celular <span class="optional-label">Opcional</span></label>
+            <input pInputText id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+51 900 000 000" [ngModel]="phone()" (ngModelChange)="phone.set($event)">
+          </div>
+
+          @if (errorMessage()) { <p-message severity="error" [text]="errorMessage()" /> }
+          @if (noticeMessage()) { <p-message severity="info" [text]="noticeMessage()" /> }
+
+          <div class="form-actions">
+            <p-button type="submit" [label]="busy() ? 'Guardando cuenta...' : 'Crear cuenta'" icon="pi pi-arrow-right" iconPos="right" [loading]="busy()" [disabled]="serviceStatus() !== 'online' || busy()" />
+            <span><i class="pi pi-lock" aria-hidden="true"></i> Tus datos se guardan de forma cifrada.</span>
+          </div>
+        </form>
+      }
+    </section>
+  </main>
+
+  <footer class="page-footer">
+    <span>© 2026 Billetera</span>
+    <span>Atención segura <i class="pi pi-shield" aria-hidden="true"></i></span>
+  </footer>
+</div>

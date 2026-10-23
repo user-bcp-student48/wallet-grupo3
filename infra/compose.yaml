@@ -5,8 +5,22 @@ services:
       dockerfile: Dockerfile
     environment:
       KYC_MOCK_BASE_URL: ${KYC_MOCK_BASE_URL:-https://bcp-wallet-mock.yefri.workers.dev/groups/3}
-      IDENTITY_CORS_ORIGINS: ${IDENTITY_CORS_ORIGINS:-http://localhost:4200}
+      IDENTITY_CORS_ORIGINS: ${IDENTITY_CORS_ORIGINS:-http://localhost:8080,http://localhost:4200}
       IDENTITY_OPERATOR_KEY: ${IDENTITY_OPERATOR_KEY:-disabled}
+      IDENTITY_DATABASE_PATH: /data/identity.sqlite
+      IDENTITY_ENCRYPTION_KEY_PATH: /data/identity.key
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-disabled}
+    volumes:
+      - ./identity-data:/data
     ports:
       - "127.0.0.1:${IDENTITY_API_PORT:-8081}:8080"
+    restart: unless-stopped
+  payer-web:
+    build:
+      context: ../apps/payer-web
+      dockerfile: Dockerfile
+    depends_on:
+      - identity-onboarding-api
+    ports:
+      - "127.0.0.1:${PAYER_WEB_PORT:-8080}:80"
     restart: unless-stopped

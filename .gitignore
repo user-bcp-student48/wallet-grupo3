@@ -10,3 +10,7 @@ output/
 evidence/*
 !evidence/.gitkeep
 node_modules/
+infra/identity-data/
+apps/payer-web/.angular/
+apps/payer-web/dist/
+apps/payer-web/.tsupgrader/
