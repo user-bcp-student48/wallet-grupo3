@@ -1,1 +1,1 @@
-"""Seis roles editables, independientes del transporte del modelo."""
+"""Five CrewAI roles for the group 3 wallet demo."""

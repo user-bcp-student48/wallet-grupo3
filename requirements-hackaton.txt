@@ -1,0 +1,2 @@
+# Separate from the legacy LangGraph lab dependencies.
+crewai>=1.15.28,<2

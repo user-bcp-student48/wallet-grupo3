@@ -1,18 +1,56 @@
-"""Run the pipeline checks without Copilot, MCP or GitHub credentials."""
+"""Check the current CrewAI agents offline, not the legacy LangGraph pipeline."""
 
+import importlib.util
 import os
 from pathlib import Path
 import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-os.environ["CREWAI_TELEMETRY_OPT_OUT"] = "true"
-os.environ["CREWAI_TRACING_ENABLED"] = "false"
-os.environ["OTEL_SDK_DISABLED"] = "true"
-for command in [
-    ["test_graph_hitl.py"],
-    ["test_harness_flow.py"],
-    ["-m", "unittest", "discover", "-s", "tests", "-v"],
-]:
-    subprocess.run([sys.executable, *command], cwd=ROOT, check=True)
-print("All pipeline checks passed. No model or external service was called.")
+
+
+def main() -> int:
+    print(f"Python: {sys.executable}", flush=True)
+    if importlib.util.find_spec("crewai") is None:
+        print(
+            "Falta CrewAI en este entorno Python.\n"
+            f'Instala las dependencias con:\n"{sys.executable}" -m pip install '
+            f'-r "{ROOT / "requirements-hackaton.txt"}"',
+            file=sys.stderr,
+        )
+        return 1
+
+    env = {
+        **os.environ,
+        "CREWAI_TELEMETRY_OPT_OUT": "true",
+        "CREWAI_TRACING_ENABLED": "false",
+        "OTEL_SDK_DISABLED": "true",
+    }
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-p",
+            "test_hackaton*.py",
+            "-v",
+        ],
+        cwd=ROOT,
+        env=env,
+        check=False,
+    )
+    if result.returncode != 0:
+        print("Fallo la verificacion de CrewAI.", file=sys.stderr)
+        return result.returncode
+    print(
+        "Checks de agentes CrewAI aprobados, sin llamadas externas. "
+        "No valida el pipeline LangGraph, MCP ni la web."
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
